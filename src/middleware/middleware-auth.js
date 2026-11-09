@@ -1,5 +1,6 @@
 import { prisma } from "../application/database.js";
 import { responseError } from "../error/error-response.js";
+import { isReachedLimit } from "../services/rate-limiter-service.js";
 
 export const authMiddleware = async (req, res, next) => {
   const token = req.get("Authorization");
@@ -25,8 +26,17 @@ export const authMiddleware = async (req, res, next) => {
         })
         .end();
     } else {
-      req.user = getUserByToken;
-      next();
+      if (await isReachedLimit(getUserByToken)) {
+        req.user = getUserByToken;
+        next();
+      } else {
+        res
+          .status(429)
+          .json({
+            errors: "too many requests",
+          })
+          .end();
+      }
     }
   }
 };

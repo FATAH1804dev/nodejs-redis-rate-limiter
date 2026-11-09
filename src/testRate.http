@@ -1,0 +1,30 @@
+### user register
+POST http://localhost:3000/api/users
+Content-Type: application/json
+Accept: application/json
+
+{
+    "username" : "Depcko",
+    "password" : "de123",
+    "name" : "Depgi Cikuok"
+}
+
+### user login
+POST http://localhost:3000/api/users/login
+Content-Type: application/json
+Accept: application/json
+
+{
+    "username" : "Depcko",
+    "password" : "de123"
+}
+
+### user get
+GET  http://localhost:3000/api/users/current
+Accept: application/json
+Authorization: 3ddd0098-c130-4896-88b4-260d55b7aef3
+
+### user get
+GET  http://localhost:3000/api/users/current
+Accept: application/json
+Authorization: 0a4534ad-10ff-44df-97a0-242207288db7

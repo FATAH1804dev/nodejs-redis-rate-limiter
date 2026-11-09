@@ -9,5 +9,4 @@ node_modules
 .windsurf
 dist
 log
-contact_management_db.sql
-users_management_db.sql
+data.json

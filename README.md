@@ -1,167 +1,171 @@
-# Contact Management Project
+# Contact Management API
 
-A simple contact management API built with Node.js, Express, Prisma, and MySQL/MariaDB. This project is designed for learning and practicing backend development, authentication flow, and relational data management.
+REST API untuk mengelola pengguna, kontak, dan alamat. Proyek ini menggunakan Express, Prisma dengan MySQL/MariaDB, serta Redis untuk rate limiting per token.
 
-## Features
+## Fitur
 
-- User registration and login
-- Token-based authentication for protected routes
-- Create, read, update, and delete contact records
-- Add, update, and remove addresses for each contact
-- Input validation and structured error handling
-- Prisma ORM integration with MySQL
-- Automated tests with Jest
+- Registrasi, login, dan autentikasi pengguna dengan token.
+- Operasi CRUD untuk kontak dan alamat.
+- Validasi input dan middleware penanganan error.
+- Rate limit untuk endpoint terautentikasi: maksimal 2 request per token dalam jendela tetap 1 detik.
+- Pengujian otomatis menggunakan Jest.
+- Skrip uji beban k6 untuk membandingkan request dalam batas dan request yang melebihi batas.
 
-## Tech Stack
+## Teknologi
 
-- Node.js
-- Express.js
-- Prisma ORM
-- MySQL / MariaDB
-- Jest
-- bcrypt for password hashing
-- dotenv for environment configuration
+- Node.js (Prisma 7 memerlukan Node.js 20.19 atau lebih baru)
+- Express
+- Prisma ORM dan MySQL/MariaDB
+- Redis
+- Jest dan Supertest
+- k6 untuk uji beban
 
-## Project Structure
+## Struktur Proyek
 
-```bash
+```text
 .
+├── data.json
+├── generated/
+├── lib/
+│   └── prisma.ts
+├── prisma/
+│   ├── migrations/
+│   └── schema.prisma
 ├── src/
 │   ├── application/
+│   │   ├── database.js
+│   │   ├── redis.js
+│   │   └── web.js
 │   ├── controller/
 │   ├── error/
 │   ├── middleware/
 │   ├── router/
 │   ├── services/
+│   │   └── rate-limiter-service.js
 │   ├── validation/
 │   ├── main.js
-│   └── testApp.http
-├── prisma/
-│   └── schema.prisma
-├── lib/
-│   └── prisma.ts
-├── generated/
+│   ├── script1.js
+│   ├── script2.js
+│   ├── testApp.http
+│   └── testRate.http
 ├── test/
 ├── package.json
+├── prisma7.config.ts
 ├── tsconfig.json
-├── .gitignore
-├── contact_management_db.sql
-├── users_management_db.sql
 └── README.md
 ```
 
-## Prerequisites
+## Prasyarat
 
-Before running this project, make sure you have:
+- Node.js 20.19 atau lebih baru dan npm.
+- MySQL atau MariaDB yang berjalan.
+- Redis yang berjalan pada `127.0.0.1:6380` (konfigurasi saat ini di `src/application/redis.js`).
+- k6 jika ingin menjalankan pengujian beban.
 
-- Node.js 18 or newer
-- MySQL or MariaDB server installed and running
-- Access to a local database instance
+## Konfigurasi
 
-## Environment Configuration
+Sebelum menjalankan perintah Prisma atau aplikasi, atur variabel lingkungan berikut di lingkungan lokal:
 
-Create a local `.env` file in the project root and configure your database connection details. Keep this file private and never commit real credentials to version control.
+- `DATABASE_URL` — URL koneksi database yang digunakan Prisma CLI.
+- `DATABASE_HOST` — host database yang digunakan adapter Prisma saat aplikasi berjalan.
+- `DATABASE_USER` — pengguna database.
+- `DATABASE_PASSWORD` — kata sandi pengguna database.
+- `DATABASE_NAME` — nama database.
 
-Example:
+Jangan masukkan kredensial database atau token produksi ke dokumentasi, skrip pengujian, atau repositori publik. Skrip k6 yang disertakan menggunakan token uji; pastikan token tersebut hanya digunakan pada lingkungan pengembangan.
 
-```env
-DATABASE_HOST=localhost
-DATABASE_USER=root
-DATABASE_PASSWORD=your_local_db_password
-DATABASE_NAME=contact_management_reactjs_learning_project
-DATABASE_PORT=3306
-```
+## Instalasi dan Database
 
-> Keep `.env` in your local environment only. Do not expose real passwords or production secrets in public repositories.
-
-## Installation
+Pasang dependensi:
 
 ```bash
 npm install
 ```
 
-## Database Setup
-
-This project uses Prisma with MySQL. You can either:
-
-1. Create the database manually in MySQL, then generate Prisma client.
-2. Import the SQL seed/schema files included in the project if available in your local setup.
-
-Generate Prisma client:
+Buat Prisma Client:
 
 ```bash
 npx prisma generate
 ```
 
-If your schema has changed and you want to sync it with the database:
+Terapkan migrasi yang tersedia ke database:
 
 ```bash
-npx prisma db push
+npx prisma migrate deploy
 ```
 
-## Running the Application
+## Menjalankan Aplikasi
 
-Build the project:
+Build proyek dan jalankan server:
 
 ```bash
 npm run build
-```
-
-Start the server:
-
-```bash
 npm start
 ```
 
-The app will run on:
+API akan tersedia di `http://localhost:3000`. Pastikan database dan Redis sudah aktif sebelum menjalankan server.
 
-```bash
-http://localhost:3000
-```
+## Rate Limiting
 
-## Testing
+Middleware autentikasi memeriksa token pada header `Authorization`, mencari pengguna di database, lalu menjalankan rate limiter. Redis menyimpan penghitung terpisah untuk setiap token. Operasi `INCR` dan pemasangan TTL dilakukan dalam satu skrip Lua atomik; request pertama memulai jendela 1 detik dan hanya dua request pertama yang diizinkan. Request berikutnya dalam jendela tersebut menerima HTTP `429`.
 
-Run the test suite:
+Rate limiter saat ini menggunakan fixed window, bukan sliding window.
+
+## API Endpoints
+
+### Publik
+
+| Method | Path               | Keterangan                 |
+| ------ | ------------------ | -------------------------- |
+| `POST` | `/api/users`       | Registrasi pengguna        |
+| `POST` | `/api/users/login` | Login dan memperoleh token |
+
+### Memerlukan autentikasi
+
+Kirim token pada header `Authorization`.
+
+| Method   | Path                                          | Keterangan                       |
+| -------- | --------------------------------------------- | -------------------------------- |
+| `GET`    | `/api/users/current`                          | Melihat profil pengguna saat ini |
+| `PATCH`  | `/api/users/current`                          | Memperbarui profil pengguna      |
+| `DELETE` | `/api/users/logout`                           | Logout                           |
+| `POST`   | `/api/contacts`                               | Membuat kontak                   |
+| `GET`    | `/api/contacts`                               | Mencari atau menampilkan kontak  |
+| `GET`    | `/api/contacts/:contactId`                    | Melihat kontak                   |
+| `PUT`    | `/api/contacts/:contactId`                    | Memperbarui kontak               |
+| `DELETE` | `/api/contacts/:contactId`                    | Menghapus kontak                 |
+| `POST`   | `/api/contacts/:contactId/address`            | Menambahkan alamat               |
+| `GET`    | `/api/contacts/:contactId/address`            | Menampilkan alamat kontak        |
+| `GET`    | `/api/contacts/:contactId/address/:addressId` | Melihat alamat                   |
+| `PUT`    | `/api/contacts/:contactId/address/:addressId` | Memperbarui alamat               |
+| `DELETE` | `/api/contacts/:contactId/address/:addressId` | Menghapus alamat                 |
+
+## Pengujian
+
+Jalankan pengujian otomatis:
 
 ```bash
 npm test
 ```
 
-## API Endpoints
+Untuk menguji endpoint secara manual, gunakan request yang tersedia di `src/testApp.http` dan `src/testRate.http`.
 
-### Public Endpoints
+### Uji beban k6
 
-- `POST /api/users` — register a new user
-- `POST /api/users/login` — login and receive a token
+Jalankan server API dan Redis terlebih dahulu. Lalu, dari terminal lain jalankan salah satu skrip:
 
-### Authenticated Endpoints
+```bash
+k6 run src/script1.js
+k6 run src/script2.js
+```
 
-- `GET /api/users/current` — get current user profile
-- `PATCH /api/users/current` — update current user
-- `DELETE /api/users/logout` — logout current user
+Kedua skrip mengirim request ke `GET /api/users/current` menggunakan 100 token unik, dengan 100 VU selama 60 detik:
 
-### Contact Endpoints
+- `script1.js` mengirim 2 request bersamaan per iterasi. Ini menguji beban yang sesuai dengan batas 2 request per token per detik.
+- `script2.js` mengirim 4 request bersamaan per iterasi. Ini menguji request yang melebihi batas; hasil yang diharapkan sekitar 2 respons `200` dan 2 respons `429` per pasangan.
 
-- `POST /api/contacts` — create a contact
-- `GET /api/contacts` — list contacts
-- `GET /api/contacts/:contactId` — get one contact
-- `PUT /api/contacts/:contactId` — update a contact
-- `DELETE /api/contacts/:contactId` — delete a contact
+Threshold k6 pada setiap skrip menentukan apakah hasil memenuhi kriteria yang diatur di file tersebut. Pastikan token uji masih valid dan tersedia di database sebelum menjalankan tes.
 
-### Address Endpoints
+## Lisensi
 
-- `POST /api/contacts/:contactId/address` — add address to contact
-- `GET /api/contacts/:contactId/address` — list addresses
-- `GET /api/contacts/:contactId/address/:addressId` — get one address
-- `PUT /api/contacts/:contactId/address/:addressId` — update an address
-- `DELETE /api/contacts/:contactId/address/:addressId` — delete an address
-
-## Notes
-
-- This project is intended for learning and local development.
-- Sensitive values such as database credentials, tokens, and private environment settings should remain local-only.
-- Do not publish real `.env` values or credentials in public repositories.
-
-## License
-
-This project is currently configured with the ISC license as defined in `package.json`.
+Proyek ini menggunakan lisensi ISC sebagaimana tercantum di `package.json`.
